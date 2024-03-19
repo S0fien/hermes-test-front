@@ -1,38 +1,30 @@
 import Stack from "react-bootstrap/Stack";
 import Container from "react-bootstrap/Container";
-import {Button, Col, Image, ListGroup, ListGroupItem, Modal, Row} from "react-bootstrap";
+import {Button, Col, ListGroup, ListGroupItem, Row} from "react-bootstrap";
 import {useMemo, useState} from "react";
 import {UsersDTO} from "./types/DTO/users.ts";
 import {AlbumsDTO} from "./types/DTO/albums.ts";
 import {PhotosDTO} from "./types/DTO/photos.ts";
 import {fetchAlbums, fetchPhotos, fetchUsers} from "./utils/api.ts";
-
-type ModalInterface = {
-    title: string;
-    url: string;
-    photoTitle: string;
-}
+import {ModalPhoto, ModalStateInterface} from "./components/ModalPhoto.tsx";
 
 function App() {
     const [users, setUsers] = useState<UsersDTO>([])
     const [albums, setAlbums] = useState<AlbumsDTO>([])
     const [photos, setPhotos] = useState<PhotosDTO>([])
     const [show, setShow] = useState(false);
-    const [modalState, setModalState] = useState<ModalInterface>({photoTitle: "", title: "", url: ""})
+    const [modalState, setModalState] = useState<ModalStateInterface>({photoTitle: "", title: "", url: ""})
     const handleClose = () => setShow(false);
     const handleShow = () => setShow(true);
 
     const fetchData = async () => {
 
         try {
-            const [userData, albumData, photoData] = await Promise.all([
-                fetchUsers(),
-                fetchAlbums(),
-                fetchPhotos()
+            await Promise.all([
+                fetchUsers().then((u) => setUsers(u)),
+                fetchAlbums().then((a) => setAlbums(a)),
+                fetchPhotos().then((p) => setPhotos(p)),
             ]);
-            setUsers(userData);
-            setAlbums(albumData);
-            setPhotos(photoData);
         } catch (error) {
             console.error('Error fetching data:', error);
         }
@@ -40,12 +32,16 @@ function App() {
     }
 
     const userAlbums = useMemo(() => {
-        return users.map(user => ({
-            ...user,
-            albums: albums.filter(album => album.userId === user.id)
-        }));
+        return users.map(user => {
+            const userAlbums = albums.reduce((acc, album) => {
+                if (album.userId === user.id) {
+                    acc.push(album);
+                }
+                return acc;
+            }, [] as AlbumsDTO);
+            return { ...user, albums: userAlbums };
+        });
     }, [users, albums]);
-
 
     return (
     <Stack gap={3}>
@@ -86,15 +82,7 @@ function App() {
                   </Col>
               ))}
 
-              <Modal show={show} onHide={handleClose}>
-                  <Modal.Header closeButton>
-                      <Modal.Title>{modalState.title}</Modal.Title>
-                  </Modal.Header>
-                  <Modal.Body><Image fluid src={modalState.url} /></Modal.Body>
-                  <Modal.Footer>
-                      <p>{modalState.photoTitle}</p>
-                  </Modal.Footer>
-              </Modal>
+              <ModalPhoto state={modalState} show={show} onClose={handleClose}/>
           </Row>
       </Container>
     </Stack>
